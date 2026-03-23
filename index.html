@@ -20,38 +20,41 @@
     </header>
 
     <section class="chart-section">
-        <div class="chart-header">
-            <h2>Nutrition per Flavor</h2>
-            <p id="topProduct"></p>
-          
-            <div class="filters">
-                <select id="metricSelect">
-                  <option value="protein_g">Protein</option>
-                  <option value="sugar_g">Sugar</option>
-                  <option value="calories_kcal">Calories</option>
-                </select>
-              
-                <select id="categorySelect">
-                  <option value="all">All Categories</option>
-                  <option value="Eiwitreep">Eiwitreep</option>
-                  <option value="Eiwitcrisp">Eiwitcrisp</option>
-                  <option value="Choco Eiwitreep">Choco Eiwitreep</option>
-                  <option value="Granola Reep">Granola Reep</option>
-                  <option value="Endurance Bar">Endurance Bar</option>
-                  <option value="Eiwitreep Crispy">Eiwitreep Crispy</option>
-                </select>
-              
-                <select id="sortSelect">
-                  <option value="default">Default Order</option>
-                  <option value="highToLow">Highest to Lowest</option>
-                  <option value="lowToHigh">Lowest to Highest</option>
-                </select>
-              </div>
-      
-        <div class="chart-box">
-          <canvas id="nutritionChart"></canvas>
+      <div class="chart-header">
+        <div>
+          <h2>Nutrition per Flavor</h2>
+          <p id="topProduct"></p>
         </div>
-      </section>
+    
+        <div class="filters">
+          <select id="metricSelect">
+            <option value="protein_g">Protein</option>
+            <option value="sugar_g">Sugar</option>
+            <option value="calories_kcal">Calories</option>
+          </select>
+    
+          <select id="categorySelect">
+            <option value="all">All Categories</option>
+            <option value="Eiwitreep">Eiwitreep</option>
+            <option value="Eiwitcrisp">Eiwitcrisp</option>
+            <option value="Choco Eiwitreep">Choco Eiwitreep</option>
+            <option value="Granola Reep">Granola Reep</option>
+            <option value="Endurance Bar">Endurance Bar</option>
+            <option value="Eiwitreep Crispy">Eiwitreep Crispy</option>
+          </select>
+    
+          <select id="sortSelect">
+            <option value="default">Default Order</option>
+            <option value="highToLow">Highest to Lowest</option>
+            <option value="lowToHigh">Lowest to Highest</option>
+          </select>
+        </div>
+      </div>
+    
+      <div class="chart-box">
+        <canvas id="nutritionChart"></canvas>
+      </div>
+    </section>
 
     <section class="gallery-section">
       <h2>Product Gallery</h2>

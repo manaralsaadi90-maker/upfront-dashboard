@@ -45,128 +45,131 @@ function parseCSV(csvText) {
 }
 
 function createChart(data, metric) {
-    const labelMap = {
-      protein_g: "Protein (g)",
-      sugar_g: "Sugar (g)",
-      calories_kcal: "Calories (kcal)"
-    };
-  
-    const labels = data.map(function(item) {
-      return item.flavor;
-    });
-  
-    const values = data.map(function(item) {
-      return item[metric];
-    });
-  
-    const maxValue = Math.max(...values);
+  const labelMap = {
+    protein_g: "Protein (g)",
+    sugar_g: "Sugar (g)",
+    calories_kcal: "Calories (kcal)"
+  };
 
-    const topIndex = values.indexOf(maxValue);
-const topItem = data[topIndex];
+  const labels = data.map(item => item.flavor);
+  const values = data.map(item => item[metric]);
 
-document.getElementById("topProduct").innerText =
-  "Top product: " + topItem.flavor + " (" + maxValue + ")";
-  
-    const backgroundColors = values.map(function(value) {
-      if (value === maxValue) {
-        return "#2c3e50";
-      } else {
-        return "#f4a640";
-      }
-    });
-  
-    const borderColors = values.map(function(value) {
-      if (value === maxValue) {
-        return "#1a252f";
-      } else {
-        return "#d8891e";
-      }
-    });
-  
-    const canvas = document.getElementById("nutritionChart");
-    const ctx = canvas.getContext("2d");
-  
-    if (nutritionChart) {
-      nutritionChart.destroy();
-    }
-  
-    nutritionChart = new Chart(ctx, {
-      type: "bar",
-      data: {
-        labels: labels,
-        datasets: [
-          {
-            label: labelMap[metric],
-            data: values,
-            backgroundColor: backgroundColors,
-            borderColor: borderColors,
-            borderWidth: 1
-          }
-        ]
+  const maxValue = Math.max(...values);
+  const topIndex = values.indexOf(maxValue);
+  const topItem = data[topIndex];
+
+  const backgroundColors = values.map(value =>
+    value === maxValue ? "#111111" : "#f4a640"
+  );
+
+  const borderColors = values.map(value =>
+    value === maxValue ? "#000000" : "#d8891e"
+  );
+
+  const topText = document.getElementById("topProduct");
+  if (topText && topItem) {
+    topText.innerText =
+      "Top product: " + topItem.flavor + " — " + maxValue + " " + labelMap[metric];
+  }
+
+  const ctx = document.getElementById("nutritionChart").getContext("2d");
+
+  if (nutritionChart) {
+    nutritionChart.destroy();
+  }
+
+  nutritionChart = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: labelMap[metric],
+          data: values,
+          backgroundColor: backgroundColors,
+          borderColor: borderColors,
+          borderWidth: 1,
+          borderRadius: 8
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: {
+        duration: 1200,
+        easing: "easeOutQuart"
       },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            display: true
-          },
-          tooltip: {
-            callbacks: {
-              afterLabel: function(context) {
-                if (context.raw === maxValue) {
-                  return "Top value in current view";
-                }
-                return "";
+      plugins: {
+        legend: {
+          display: true
+        },
+        tooltip: {
+          callbacks: {
+            afterLabel: function(context) {
+              if (context.raw === maxValue) {
+                return "Top value in current view";
               }
+              return "";
             }
           }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          grid: {
+            color: "#eeeeee"
+          }
         },
-        scales: {
-          y: {
-            beginAtZero: true
+        x: {
+          grid: {
+            display: false
           }
         }
       }
-    });
-  }
+    }
+  });
+}
 
 function setupMetricFilter() {
-    const metricSelect = document.getElementById("metricSelect");
-    const categorySelect = document.getElementById("categorySelect");
-    const sortSelect = document.getElementById("sortSelect");
-  
-    function updateChart() {
-      const metric = metricSelect.value;
-      const category = categorySelect.value;
-      const sortOrder = sortSelect.value;
-  
-      let filteredData = [...allData];
-  
-      if (category !== "all") {
-        filteredData = filteredData.filter(function(item) {
-          return item.category === category;
-        });
-      }
-  
-      if (sortOrder === "highToLow") {
-        filteredData.sort(function(a, b) {
-          return b[metric] - a[metric];
-        });
-      } else if (sortOrder === "lowToHigh") {
-        filteredData.sort(function(a, b) {
-          return a[metric] - b[metric];
-        });
-      }
-  
-      createChart(filteredData, metric);
-      createGallery(filteredData);
+  const metricSelect = document.getElementById("metricSelect");
+  const categorySelect = document.getElementById("categorySelect");
+  const sortSelect = document.getElementById("sortSelect");
+
+  if (!metricSelect || !categorySelect || !sortSelect) return;
+
+  function updateView() {
+    const metric = metricSelect.value;
+    const category = categorySelect.value;
+    const sortOrder = sortSelect.value;
+
+    let filteredData = [...allData];
+
+    if (category !== "all") {
+      filteredData = filteredData.filter(function (item) {
+        return item.category === category;
+      });
     }
-  
-    metricSelect.addEventListener("change", updateChart);
-    categorySelect.addEventListener("change", updateChart);
-    sortSelect.addEventListener("change", updateChart);
+
+    if (sortOrder === "highToLow") {
+      filteredData.sort(function (a, b) {
+        return b[metric] - a[metric];
+      });
+    } else if (sortOrder === "lowToHigh") {
+      filteredData.sort(function (a, b) {
+        return a[metric] - b[metric];
+      });
+    }
+
+    createChart(filteredData, metric);
+    createGallery(filteredData);
   }
+
+  metricSelect.addEventListener("change", updateView);
+  categorySelect.addEventListener("change", updateView);
+  sortSelect.addEventListener("change", updateView);
+}
 
 function createGallery(data) {
   const gallery = document.getElementById("productGallery");
