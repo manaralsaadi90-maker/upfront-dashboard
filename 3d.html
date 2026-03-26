@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Upfront 3D Visualization</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(to bottom, #f7f7f7, #ffffff);
+      color: #111;
+      overflow: hidden;
+    }
+
+    .overlay {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 10;
+      background: rgba(255, 255, 255, 0.92);
+      padding: 18px 20px;
+      border-radius: 14px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+      max-width: 320px;
+    }
+
+    .overlay h1 {
+      margin: 0 0 10px;
+      font-size: 24px;
+      text-transform: uppercase;
+    }
+
+    .overlay p {
+      margin: 0 0 10px;
+      line-height: 1.5;
+      color: #444;
+      font-size: 14px;
+    }
+
+    .overlay a {
+      display: inline-block;
+      margin-top: 8px;
+      text-decoration: none;
+      color: white;
+      background: #f4a640;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-weight: bold;
+    }
+
+    .overlay a:hover {
+      background: #d8891e;
+    }
+
+    .legend {
+      margin-top: 10px;
+      font-size: 13px;
+      color: #555;
+    }
+
+    canvas {
+      display: block;
+    }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div class="overlay">
+    <h1>3D Protein View</h1>
+    <p>
+      This page shows a 3D visualization of Upfront products.
+      Each bar represents one flavor, and the bar height shows protein in grams.
+    </p>
+    <p class="legend">
+      Mouse:
+      drag = rotate,
+      scroll = zoom,
+      right click = move
+    </p>
+    <a href="index.html">Back to dashboard</a>
+  </div>
+
+  <script type="module">
+    import * as THREE from "three";
+    import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+    const FILTER_STATE_KEY = "upfrontDashboardFilters";
+    const METRIC_LABELS = {
+      protein_g: "Protein (g)",
+      sugar_g: "Sugar (g)",
+      calories_kcal: "Calories (kcal)"
+    };
+
+    // -----------------------------
+    // SCENE SETUP
+    // -----------------------------
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xf6f6f6);
+
+    const camera = new THREE.PerspectiveCamera(
+      60,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      1000
+    );
+    camera.position.set(0, 12, 26);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    document.body.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.target.set(0, 4, 0);
+    controls.minDistance = 8;
+    controls.maxDistance = 60;
+
+    // -----------------------------
+    // LIGHTING
+    // -----------------------------
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+    scene.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.1);
+    directionalLight.position.set(10, 20, 10);
+    directionalLight.castShadow = true;
+    scene.add(directionalLight);
+
+    // -----------------------------
+    // FLOOR + GRID
+    // -----------------------------
+    const floorGeometry = new THREE.PlaneGeometry(50, 50);
+    const floorMaterial = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      roughness: 0.9
+    });
+    const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = 0;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    const gridHelper = new THREE.GridHelper(40, 20, 0xdddddd, 0xeeeeee);
+    scene.add(gridHelper);
+
+    // -----------------------------
+    // DYNAMIC CHART GROUPS
+    // -----------------------------
+    const barGroup = new THREE.Group();
+    const labelGroup = new THREE.Group();
+    scene.add(barGroup);
+    scene.add(labelGroup);
+
+    let allData = [];
+    let activeMetric = "protein_g";
+
+    function parseCSV(csvText) {
+      const lines = csvText.trim().split("\n");
+      const headers = lines[0].split(",").map((header) => header.trim());
+      const rows = lines.slice(1);
+
+      return rows.map((row) => {
+        const values = row.split(",").map((value) => value.trim());
+        const item = {};
+
+        headers.forEach((header, index) => {
+          item[header] = values[index];
+        });
+
+        item.protein_g = Number(item.protein_g);
+        item.sugar_g = Number(item.sugar_g);
+        item.calories_kcal = Number(item.calories_kcal);
+
+        return item;
+      });
+    }
+
+    function getFilterState() {
+      const defaultState = {
+        metric: "protein_g",
+        category: "all",
+        sortOrder: "default"
+      };
+
+      try {
+        const raw = localStorage.getItem(FILTER_STATE_KEY);
+        if (!raw) return defaultState;
+        const parsed = JSON.parse(raw);
+
+        return {
+          metric: parsed.metric || defaultState.metric,
+          category: parsed.category || defaultState.category,
+          sortOrder: parsed.sortOrder || defaultState.sortOrder
+        };
+      } catch (error) {
+        return defaultState;
+      }
+    }
+
+    function getFilteredData(filterState) {
+      const metric = filterState.metric;
+      let filteredData = [...allData];
+
+      if (filterState.category !== "all") {
+        filteredData = filteredData.filter((item) => item.category === filterState.category);
+      }
+
+      if (filterState.sortOrder === "highToLow") {
+        filteredData.sort((a, b) => b[metric] - a[metric]);
+      } else if (filterState.sortOrder === "lowToHigh") {
+        filteredData.sort((a, b) => a[metric] - b[metric]);
+      }
+
+      return filteredData;
+    }
+
+    function clearGroup(group) {
+      while (group.children.length > 0) {
+        const child = group.children[0];
+        group.remove(child);
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) {
+          if (Array.isArray(child.material)) {
+            child.material.forEach((material) => material.dispose());
+          } else {
+            child.material.dispose();
+          }
+        }
+
+        if (child.material && child.material.map) {
+          child.material.map.dispose();
+        }
+      }
+    }
+
+    function createTextSprite(text) {
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d");
+
+      canvas.width = 256;
+      canvas.height = 64;
+
+      context.fillStyle = "rgba(255,255,255,0.95)";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.fillStyle = "#111";
+      context.font = "20px Arial";
+      context.textAlign = "center";
+      context.fillText(text, canvas.width / 2, 40);
+
+      const texture = new THREE.CanvasTexture(canvas);
+      const material = new THREE.SpriteMaterial({ map: texture });
+      const sprite = new THREE.Sprite(material);
+      sprite.scale.set(3.2, 0.8, 1);
+      return sprite;
+    }
+
+    function updateLegend(filterState, visibleCount) {
+      const legend = document.querySelector(".legend");
+      if (!legend) return;
+
+      legend.textContent =
+        "Metric: " + METRIC_LABELS[filterState.metric] +
+        " | Category: " + filterState.category +
+        " | Sort: " + filterState.sortOrder +
+        " | Items: " + visibleCount;
+    }
+
+    function render3DChart(data, metric) {
+      activeMetric = metric;
+      clearGroup(barGroup);
+      clearGroup(labelGroup);
+
+      if (!data.length) return;
+
+      const values = data.map((item) => Number(item[metric]));
+      const maxValue = Math.max(...values);
+      const spacing = 2.2;
+      const totalWidth = (data.length - 1) * spacing;
+
+      data.forEach((item, index) => {
+        const value = Number(item[metric]);
+        const height = Math.max(value * 0.45, 0.2);
+        const geometry = new THREE.BoxGeometry(1.4, height, 1.4);
+
+        const material = new THREE.MeshStandardMaterial({
+          color: value === maxValue ? 0x111111 : 0xf4a640
+        });
+
+        const bar = new THREE.Mesh(geometry, material);
+        bar.castShadow = true;
+        bar.position.x = index * spacing - totalWidth / 2;
+        bar.position.y = height / 2;
+
+        bar.userData = {
+          flavor: item.flavor,
+          value: value,
+          baseY: height / 2
+        };
+
+        barGroup.add(bar);
+
+        const shortName =
+          item.flavor.length > 10 ? item.flavor.substring(0, 10) + "..." : item.flavor;
+        const label = createTextSprite(shortName);
+        label.position.set(index * spacing - totalWidth / 2, 0.6, 1.6);
+        labelGroup.add(label);
+      });
+    }
+
+    function syncFromMainDashboard() {
+      if (!allData.length) return;
+
+      const filterState = getFilterState();
+      const filteredData = getFilteredData(filterState);
+
+      render3DChart(filteredData, filterState.metric);
+      updateLegend(filterState, filteredData.length);
+    }
+
+    async function loadDataAndRender() {
+      const response = await fetch("data.csv");
+      const csvText = await response.text();
+      allData = parseCSV(csvText);
+      syncFromMainDashboard();
+    }
+
+    // -----------------------------
+    // HOVER TOOLTIP
+    // -----------------------------
+    const tooltip = document.createElement("div");
+    tooltip.style.position = "absolute";
+    tooltip.style.pointerEvents = "none";
+    tooltip.style.padding = "8px 10px";
+    tooltip.style.background = "rgba(17,17,17,0.9)";
+    tooltip.style.color = "white";
+    tooltip.style.fontSize = "13px";
+    tooltip.style.borderRadius = "8px";
+    tooltip.style.display = "none";
+    tooltip.style.zIndex = "20";
+    document.body.appendChild(tooltip);
+
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    function onMouseMove(event) {
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(barGroup.children);
+
+      if (intersects.length > 0) {
+        const obj = intersects[0].object;
+        tooltip.style.display = "block";
+        tooltip.style.left = event.clientX + 12 + "px";
+        tooltip.style.top = event.clientY + 12 + "px";
+        tooltip.innerHTML =
+          "<strong>" + obj.userData.flavor + "</strong><br>" +
+          METRIC_LABELS[activeMetric] + ": " + obj.userData.value;
+      } else {
+        tooltip.style.display = "none";
+      }
+    }
+
+    window.addEventListener("mousemove", onMouseMove);
+
+    // Sync when main page updates localStorage (other tab/window)
+    window.addEventListener("storage", (event) => {
+      if (event.key === FILTER_STATE_KEY) {
+        syncFromMainDashboard();
+      }
+    });
+
+    // Also refresh when returning focus to this tab.
+    window.addEventListener("focus", syncFromMainDashboard);
+
+    // -----------------------------
+    // ANIMATION LOOP
+    // -----------------------------
+    function animate() {
+      requestAnimationFrame(animate);
+
+      barGroup.children.forEach((bar, index) => {
+        bar.rotation.y += 0.003;
+        bar.position.y = bar.userData.baseY + Math.sin(Date.now() * 0.001 + index) * 0.08;
+      });
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    animate();
+
+    // -----------------------------
+    // RESIZE
+    // -----------------------------
+    window.addEventListener("resize", () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    loadDataAndRender().catch((error) => {
+      console.error("Failed to load 3D data:", error);
+    });
+  </script>
+</body>
+</html>
