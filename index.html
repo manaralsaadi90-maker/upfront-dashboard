@@ -20,7 +20,11 @@
     </header>
     <a href="3d.html" class="three-d-link">Open 3D Visualization</a>
 
-    
+    <div class="scroll-hint" aria-hidden="true">
+      <span class="scroll-hint-label">Scroll down for charts and gallery</span>
+      <span class="scroll-hint-arrow" title="Scroll down"></span>
+    </div>
+
     <section class="chart-section">
       <div class="chart-header">
         <div>
@@ -56,6 +60,7 @@
       <div class="chart-box">
         <canvas id="nutritionChart"></canvas>
       </div>
+      <div id="chartColorLegend" class="chart-color-legend" aria-live="polite"></div>
     </section>
 
     <section class="gallery-section">
@@ -64,12 +69,13 @@
     </section>
   </div>
 
-  <script src="main.js"></script>
   <div id="comparisonModal" class="comparison-modal">
     <div class="comparison-modal-content">
-      <span id="closeComparisonModal" class="close-modal">&times;</span>
+      <button type="button" id="closeComparisonModal" class="close-modal" aria-label="Close comparison">&times;</button>
       <div id="comparisonModalBody"></div>
     </div>
   </div>
+
+  <script src="main.js"></script>
 </body>
 </html>
